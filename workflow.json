@@ -1,0 +1,986 @@
+{
+  "name": "AI bot cinema",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-flow",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        560,
+        -528
+      ],
+      "id": "5e50f3f9-4b91-44c7-8d3c-1ef3da3bd75b",
+      "name": "Webhook",
+      "webhookId": "927601de-4429-4456-aeea-957940427bd4",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gigachat.devices.sberbank.ru/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Set token').item.json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"GigaChat\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": {{ JSON.stringify($json.content) }}\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($('Webhook').item.json.body.message.text) }}\n    }\n  ],\n  \"function_call\": {\n    \"name\": \"classify_ticket\"\n  },\n  \"functions\": [\n    {\n      \"name\": \"classify_ticket\",\n      \"description\": \"Классифицирует входящее обращение пользователя в службу поддержки. Определяет категорию, приоритет, краткое описание, исполнителя и уверенность в классификации.\",\n      \"parameters\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"category\": {\n            \"type\": \"string\",\n            \"description\": \"Категория обращения.\",\n            \"enum\": [\n              \"Техническая проблема\",\n              \"Проблема с доступом\",\n              \"Коммерческий вопрос\",\n              \"Другое\"\n            ]\n          },\n          \"priority\": {\n            \"type\": \"string\",\n            \"description\": \"Приоритет обращения. Высокий — бизнес-процесс остановлен. Средний — частичная проблема. Низкий — информационный вопрос.\",\n            \"enum\": [\n              \"Высокий\",\n              \"Средний\",\n              \"Низкий\"\n            ]\n          },\n          \"summary\": {\n            \"type\": \"string\",\n            \"description\": \"Краткое описание сути обращения в 2–3 предложениях. Только факты из текста, без домыслов. Должно быть достаточно для понимания без чтения оригинала.\"\n          },\n          \"assignee\": {\n            \"type\": \"string\",\n            \"description\": \"Предполагаемый исполнитель. Support — технические проблемы и доступ. Sales — коммерция и новые подключения. DevOps — сбои после обновлений ПО. Account Manager — лицензии и договоры существующих клиентов.\",\n            \"enum\": [\n              \"Support\",\n              \"Sales\",\n              \"DevOps\",\n              \"Account Manager\"\n            ]\n          },\n          \"confidence\": {\n            \"type\": \"number\",\n            \"description\": \"Уверенность в классификации от 0 до 1. 0.9–1.0 — однозначное обращение. 0.7–0.89 — небольшая неопределённость. Ниже 0.7 — размытое обращение.\"\n          }\n        },\n        \"required\": [\"category\", \"priority\", \"summary\", \"assignee\", \"confidence\"]\n      },\n      \"return_parameters\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"category\": { \"type\": \"string\" },\n          \"priority\": { \"type\": \"string\" },\n          \"summary\": { \"type\": \"string\" },\n          \"assignee\": { \"type\": \"string\" },\n          \"confidence\": { \"type\": \"number\" }\n        }\n      },\n      \"few_shot_examples\": [\n        {\n          \"request\": \"Здравствуйте.\\n\\nПосле обновления кассовой программы перестали печататься чеки.\\n\\nКинотеатр «Орион».\\n\\nОшибка возникает только на первой кассе.\",\n          \"params\": {\n            \"category\": \"Техническая проблема\",\n            \"priority\": \"Высокий\",\n            \"summary\": \"После обновления кассового ПО перестали печататься чеки на первой кассе кинотеатра «Орион». Проблема воспроизводится стабильно на одном рабочем месте. Требуется диагностика после обновления.\",\n            \"assignee\": \"DevOps\",\n            \"confidence\": 0.93\n          }\n        },\n        {\n          \"request\": \"Добрый день.\\n\\nХотим узнать стоимость подключения нового кинотеатра.\\n\\nНас интересуют лицензии.\",\n          \"params\": {\n            \"category\": \"Коммерческий вопрос\",\n            \"priority\": \"Низкий\",\n            \"summary\": \"Потенциальный клиент интересуется стоимостью подключения нового кинотеатра и условиями лицензирования. Конкретных технических вопросов нет.\",\n            \"assignee\": \"Sales\",\n            \"confidence\": 0.97\n          }\n        },\n        {\n          \"request\": \"Не могу войти в личный кабинет.\\n\\nПишет «неверный пароль».\\n\\nСбрасывал пароль два раза.\",\n          \"params\": {\n            \"category\": \"Проблема с доступом\",\n            \"priority\": \"Средний\",\n            \"summary\": \"Пользователь не может войти в личный кабинет — система выдаёт ошибку «неверный пароль». Двукратный сброс пароля проблему не решил. Возможна техническая неисправность механизма аутентификации.\",\n            \"assignee\": \"Support\",\n            \"confidence\": 0.95\n          }\n        },\n        {\n          \"request\": \"У нас не работает весь сервер — все кассы встали, сеанс через 20 минут.\",\n          \"params\": {\n            \"category\": \"Техническая проблема\",\n            \"priority\": \"Высокий\",\n            \"summary\": \"Полный отказ сервера: все кассы недоступны, продажи билетов остановлены. Ближайший сеанс через 20 минут, ситуация критическая.\",\n            \"assignee\": \"DevOps\",\n            \"confidence\": 0.99\n          }\n        },\n        {\n          \"request\": \"Хотели бы узнать, можно ли продлить лицензию на следующий год и какие условия.\",\n          \"params\": {\n            \"category\": \"Коммерческий вопрос\",\n            \"priority\": \"Низкий\",\n            \"summary\": \"Существующий клиент интересуется условиями и возможностью продления лицензии на следующий год.\",\n            \"assignee\": \"Account Manager\",\n            \"confidence\": 0.92\n          }\n        }\n      ]\n    }\n  ]\n}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1824,
+        -416
+      ],
+      "id": "27e946a3-8181-46f4-b548-7d33589fed25",
+      "name": "Create request",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "443447ad-877e-4721-b1e3-35f6903d8208",
+              "name": "bot_token",
+              "value": "<tg_bot_token>",
+              "type": "string"
+            },
+            {
+              "id": "cf2f18d8-647b-4587-9ca0-edee55203e89",
+              "name": "api",
+              "value": "<api_key_llm>",
+              "type": "string"
+            },
+            {
+              "id": "1c647ba2-6f5e-4cfc-82ae-810b58fd0917",
+              "name": "Support_id",
+              "value": "<tg_id_Support>",
+              "type": "string"
+            },
+            {
+              "id": "7d03e406-6038-4103-bf62-726fb2686f09",
+              "name": "Sales_id",
+              "value": "<tg_id_Sales>",
+              "type": "string"
+            },
+            {
+              "id": "0e970d75-815e-4bf0-b4e7-6925ecdb7fba",
+              "name": "DevOps_id",
+              "value": "<tg_id_DevOps>",
+              "type": "string"
+            },
+            {
+              "id": "9f22fcfb-a71b-4ada-bc99-a5c6167a6c94",
+              "name": "Account_Manager_id",
+              "value": "<tg_id_Account_Manager>",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        -528
+      ],
+      "id": "c5f63e19-71e7-4c28-961d-d1b1d4206a05",
+      "name": "Set"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Set').item.json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $('Webhook').item.json.body.message.chat.id }}"
+            },
+            {
+              "name": "text",
+              "value": "=<b>Вас приветствует служба поддержки</b>\n\nНапишите ваше обращение максимально подробно:"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1184,
+        -608
+      ],
+      "id": "69211ba8-6a8f-432c-ac17-4181899c9ed3",
+      "name": "Send greetings"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<bot_token>/setWebhook?url=<workflow_link>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        -336
+      ],
+      "id": "f8741f32-5f1b-4390-a80b-0c61baef85f6",
+      "name": "Register webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.choices[0].message.function_call.arguments.assignee }}",
+                    "rightValue": "Support",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "762d4842-50d6-4212-a4aa-45a513d50c3a"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Support"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b6c871e4-179c-44e7-9064-041fbcdaa832",
+                    "leftValue": "={{ $json.choices[0].message.function_call.arguments.assignee }}",
+                    "rightValue": "Sales",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Sales"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "49b01b2f-c4ee-40a5-910b-e8d9bc76fc38",
+                    "leftValue": "={{ $json.choices[0].message.function_call.arguments.assignee }}",
+                    "rightValue": "DevOps",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DevOps"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f1c950d4-7497-4e01-b3a3-5ecc8a4d6fd2",
+                    "leftValue": "={{ $json.choices[0].message.function_call.arguments.assignee }}",
+                    "rightValue": "Account Manager",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Account Manager"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        2464,
+        -368
+      ],
+      "id": "c67656a2-e9c6-414f-9f70-4165207604f4",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Set').item.json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $('Set').item.json.Support_id }}"
+            },
+            {
+              "name": "text",
+              "value": "=<b>Категория:</b> {{ $json.choices[0].message.function_call.arguments.category }}\n<b>Приоритет:</b> {{ $json.choices[0].message.function_call.arguments.priority }}\n<b>Суть обращения:</b> {{ $json.choices[0].message.function_call.arguments.summary }}\n<b>Пользователь:</b> @{{ $('Webhook').item.json.body.message.from.username }}"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2752,
+        -560
+      ],
+      "id": "ee3b5dca-a457-4937-8532-4bcbf2303ff0",
+      "name": "Send support ticket"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Set').item.json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $('Set').item.json.Sales_id }}"
+            },
+            {
+              "name": "text",
+              "value": "=<b>Категория:</b> {{ $json.choices[0].message.function_call.arguments.category }}\n<b>Приоритет:</b> {{ $json.choices[0].message.function_call.arguments.priority }}\n<b>Суть обращения:</b> {{ $json.choices[0].message.function_call.arguments.summary }}\n<b>Пользователь:</b> @{{ $('Webhook').item.json.body.message.from.username }}"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2800,
+        -384
+      ],
+      "id": "55388cbf-cd97-40ba-abcb-3ecf26374c4e",
+      "name": "Send sales ticket"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Set').item.json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $('Set').item.json.Account_Manager_id }}"
+            },
+            {
+              "name": "text",
+              "value": "=<b>Категория:</b> {{ $json.choices[0].message.function_call.arguments.category }}\n<b>Приоритет:</b> {{ $json.choices[0].message.function_call.arguments.priority }}\n<b>Суть обращения:</b> {{ $json.choices[0].message.function_call.arguments.summary }}\n<b>Пользователь:</b> @{{ $('Webhook').item.json.body.message.from.username }}"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2752,
+        -48
+      ],
+      "id": "69adce20-5ee6-42f5-b2e1-596d76117919",
+      "name": "Send account manager ticket"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Set').item.json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $('Set').item.json.DevOps_id }}"
+            },
+            {
+              "name": "text",
+              "value": "=<b>Категория:</b> {{ $json.choices[0].message.function_call.arguments.category }}\n<b>Приоритет:</b> {{ $json.choices[0].message.function_call.arguments.priority }}\n<b>Суть обращения:</b> {{ $json.choices[0].message.function_call.arguments.summary }}\n<b>Пользователь:</b> @{{ $('Webhook').item.json.body.message.from.username }}"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2800,
+        -208
+      ],
+      "id": "0e917071-bb39-42e9-b8e9-f9f3c84e2562",
+      "name": "Send devops ticket"
+    },
+    {
+      "parameters": {
+        "jsCode": "function generateUUID() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {\n    const r = (Math.random() * 16) | 0;\n    const v = c === 'x' ? r : (r & 0x3) | 0x8;\n    return v.toString(16);\n  });\n}\n\nconst uuid = generateUUID();\n\nreturn [\n  {\n    json: {\n      uuid,\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        -432
+      ],
+      "id": "42c09492-0ee4-4c3d-a54b-ba5358f1e656",
+      "name": "Generate uuid"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bbbc6741-c943-417b-b27d-c9eb2dff1be8",
+              "leftValue": "={{ $('Webhook').item.json.body.message.text }}",
+              "rightValue": "/start",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        944,
+        -528
+      ],
+      "id": "7b1b9dae-425e-4d3e-879d-7e1e82f52da1",
+      "name": "New users control"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Set').item.json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $('Webhook').item.json.body.message.chat.id }}"
+            },
+            {
+              "name": "text",
+              "value": "=Спасибо за обращение!\n\nЧтобы мы могли автоматически направить ваш запрос нужному специалисту и сократить время обработки, нам требуется немного больше информации.\n\nПожалуйста, уточните, к какому вопросу ближе всего относится ваше обращение:\n\n🔧 Техническая поддержка (Support) — ошибки в работе системы, проблемы с доступом, неисправности оборудования или программного обеспечения.\n\n🖥 DevOps — проблемы после обновлений, сбои серверов, инфраструктуры или интеграций.\n\n💼 Sales — подключение нового кинотеатра, стоимость услуг, коммерческие предложения.\n\n📄 Account Manager — вопросы по лицензиям, продлению обслуживания, действующим договорам и условиям сотрудничества.\n\nЕсли ни один из вариантов не подходит, пожалуйста, опишите ситуацию подробнее: что произошло, когда возникла проблема и что вы уже пробовали сделать. Это поможет нам быстрее подобрать подходящего специалиста."
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2528,
+        -656
+      ],
+      "id": "54521f4a-0dd1-44ec-96e7-cb9fc06d6835",
+      "name": "Send a message for rechecking"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "https://docs.google.com/document/d/1KAa_d6qEQk_lCMaph1onHn-JmjvuLSZetYmzOod11ms/edit?tab=t.0"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        -416
+      ],
+      "id": "96e00742-ddfe-4d87-bd94-b9d47c0f5b57",
+      "name": "Get a prompt",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "dXrRWg33xSiNfzFv",
+          "name": "Google Docs account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "002407f9-8c83-4b05-b0ef-cf97a6cb298f",
+              "leftValue": "={{ $json.choices[0].message.function_call.arguments.confidence }}",
+              "rightValue": 0.7,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2304,
+        -448
+      ],
+      "id": "3607b6aa-052d-428e-8fdf-44cbc0e69c87",
+      "name": "Confidence control"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ngw.devices.sberbank.ru:9443/api/v2/oauth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "RqUID",
+              "value": "={{ $json.uuid }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Basic {{ $('Set').item.json.api }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "scope",
+              "value": "GIGACHAT_API_PERS"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1424,
+        -416
+      ],
+      "id": "410b35e6-7e35-4956-8ec4-3bb7d25094a6",
+      "name": "Set token",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Set').item.json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $('Set').item.json.DevOps_id }}"
+            },
+            {
+              "name": "text",
+              "value": "=Узел \"Set token\" вернул ошибку"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1584,
+        -208
+      ],
+      "id": "febda707-6e6e-43c7-a9ae-e0a99e7e4467",
+      "name": "Send alert about token"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Set').item.json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $('Set').item.json.DevOps_id }}"
+            },
+            {
+              "name": "text",
+              "value": "=Узел \"Get a prompt\" вернул ошибку"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1808,
+        -208
+      ],
+      "id": "5698f3c6-5a61-4d8d-9ff0-33bd516e0b1f",
+      "name": "Send alert about prompt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Set').item.json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $('Set').item.json.DevOps_id }}"
+            },
+            {
+              "name": "text",
+              "value": "=Узел \"Create request\" вернул ошибку"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2032,
+        -208
+      ],
+      "id": "0c2b4832-8442-443d-be6d-019746bc175e",
+      "name": "Send alert about request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "77cb7e3b-c9b5-45ee-989b-b6bd96bcc515",
+              "leftValue": "={{ $json.choices[0].message.function_call.arguments.assignee }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "a965d3eb-4435-43a4-b1a0-25d0f49855f6",
+              "leftValue": "={{ $json.choices[0].message.function_call.arguments.category }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "f723512a-24b0-43c5-ada4-eb6f199452c8",
+              "leftValue": "={{ $json.choices[0].message.function_call.arguments.confidence }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "73df9e60-cad4-4504-a24c-5aca2f318217",
+              "leftValue": "={{ $json.choices[0].message.function_call.arguments.priority }}",
+              "rightValue": "={{ $json.choices[0].message.function_call.arguments.priority }}",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "8d390aa3-2750-4dde-ae00-3af73307d23d",
+              "leftValue": "={{ $json.choices[0].message.function_call.arguments.summary }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2032,
+        -400
+      ],
+      "id": "765acc4f-4900-4782-a560-6817233409f7",
+      "name": "Response control"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $('Set').item.json.bot_token }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $('Set').item.json.DevOps_id }}"
+            },
+            {
+              "name": "text",
+              "value": "=Неполный или неточный ответ LLM"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2240,
+        -272
+      ],
+      "id": "69d905b1-b2f1-4ae3-b9cf-c04d81b91284",
+      "name": "Bad response"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create request": {
+      "main": [
+        [
+          {
+            "node": "Response control",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send alert about request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set": {
+      "main": [
+        [
+          {
+            "node": "New users control",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Send support ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send sales ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send devops ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send account manager ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send support ticket": {
+      "main": [
+        []
+      ]
+    },
+    "Generate uuid": {
+      "main": [
+        [
+          {
+            "node": "Set token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New users control": {
+      "main": [
+        [
+          {
+            "node": "Send greetings",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate uuid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a prompt": {
+      "main": [
+        [
+          {
+            "node": "Create request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send alert about prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confidence control": {
+      "main": [
+        [
+          {
+            "node": "Send a message for rechecking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set token": {
+      "main": [
+        [
+          {
+            "node": "Get a prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send alert about token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Response control": {
+      "main": [
+        [
+          {
+            "node": "Confidence control",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bad response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "08b8871b-ec40-484f-8b33-46a6716afee1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "924c532a26061cb926cceb9e81a4a5aa0fe38a04ded11ad198baab8d2a0b4759"
+  },
+  "id": "0mRyaso7erJiRxJu",
+  "tags": [
+    {
+      "updatedAt": "2026-05-28T18:16:46.727Z",
+      "createdAt": "2026-05-28T18:16:46.727Z",
+      "id": "WCkbB3v7RD4qdip6",
+      "name": "Test flow"
+    }
+  ]
+}

@@ -59,7 +59,7 @@ GigaChat взят для тестового задания из практиче
 
 1. Поднять n8n через `docker-compose`.
 2. Настроить nginx + домен (Let's Encrypt или Cloudflare — на выбор).
-3. Импортировать `AI_bot_cinema.json` в n8n.
+3. Импортировать `workflow.json` в n8n.
 4. В узле **Set** заполнить: токен бота, ключ GigaChat, ID чатов Support/Sales/DevOps/Account Manager.
 5. В узле **Get a prompt** указать свой Google Docs и подключить Google OAuth2.
 6. Активировать workflow, выполнить **Register webhook**.
